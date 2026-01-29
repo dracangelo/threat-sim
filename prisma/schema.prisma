@@ -1,0 +1,357 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Threat {
+  id              String   @id @default(cuid())
+  title           String
+  description     String
+  severity        Severity @default(MEDIUM)
+  type            ThreatType
+  status          ThreatStatus @default(DETECTED)
+  sourceIp        String?
+  destinationIp   String?
+  sourcePort      Int?
+  destinationPort Int?
+  protocol        String?
+  timestamp       DateTime @default(now())
+  isAnomaly       Boolean  @default(false)
+  anomalyScore    Float?
+  confidence      Float?
+  mitreTactics    String?
+  mitreTechniques String?
+  evidence        String?
+  assignedTo      String?
+  assignedToId    String?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  incidentId      String?  @unique
+  detectionMethod  String   @default("AUTOMATED")
+  sourceSystem    String   @default("SIEM")
+  firstSeen       DateTime?
+  lastSeen        DateTime?
+  affectedHosts   String?
+  affectedUsers   String?
+  remediation     String?
+  notes           String?
+  tags            String?
+  priority        Int      @default(0)
+  correlationChainId String?
+  chainOrder      Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  timelineEvents  TimelineEvent[]
+  iocs            IOC[]
+  correlationChain CorrelationChain?  @relation(fields: [correlationChainId], references: [id])
+  assignedToUser  User?     @relation(fields: [assignedToId], references: [id])
+
+  @@index([correlationChainId])
+  @@index([assignedToId])
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ThreatType {
+  MALWARE
+  PHISHING
+  SPEAR_PHISHING
+  DDOS
+  INTRUSION
+  DATA_EXFILTRATION
+  UNAUTHORIZED_ACCESS
+  SUSPICIOUS_BEHAVIOR
+  ANOMALY
+  LATERAL_MOVEMENT
+  PRIVILEGE_ESCALATION
+  COMMAND_AND_CONTROL
+  PERSISTENCE
+  DEFENSE_EVASION
+  RANSOMWARE
+  SUPPLY_CHAIN
+  CREDENTIAL_THEFT
+  WEB_APPLICATION_ATTACK
+  SOCIAL_ENGINEERING
+  BUSINESS_EMAIL_COMPROMISE
+  APT
+  ZERO_DAY
+  RECONNAISSANCE
+  RESOURCE_HIJACKING
+}
+
+enum ThreatStatus {
+  DETECTED
+  INVESTIGATING
+  CONTAINED
+  RESOLVED
+  FALSE_POSITIVE
+  ESCALATED
+  IN_PROGRESS
+  AWAITING_INFO
+  MONITORING
+  CLOSED
+  DEFERRED
+}
+
+model TimelineEvent {
+  id          String   @id @default(cuid())
+  threatId    String
+  eventType   String
+  eventTime   DateTime @default(now())
+  description String
+  metadata    String?
+  userId      String?
+  source      String   @default("MANUAL")
+  createdAt   DateTime @default(now())
+
+  threat      Threat   @relation(fields: [threatId], references: [id], onDelete: Cascade)
+
+  @@index([threatId])
+  @@index([eventTime])
+}
+
+model IOC {
+  id          String   @id @default(cuid())
+  threatId    String
+  type        IOCType
+  value       String
+  description String?
+  confidence  Float?
+  source      String?
+  firstSeen   DateTime?
+  lastSeen    DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  threat      Threat   @relation(fields: [threatId], references: [id], onDelete: Cascade)
+
+  @@index([threatId])
+  @@index([type, value])
+}
+
+enum IOCType {
+  IP_ADDRESS
+  DOMAIN
+  URL
+  FILE_HASH_MD5
+  FILE_HASH_SHA1
+  FILE_HASH_SHA256
+  EMAIL
+  REGISTRY_KEY
+  PROCESS_NAME
+  USER_AGENT
+  CERTIFICATE
+}
+
+model Investigation {
+  id          String   @id @default(cuid())
+  threatId    String
+  title       String
+  description String
+  status      String   @default("OPEN")
+  assignedTo  String?
+  priority    String   @default("MEDIUM")
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  findings    String?
+  actions     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([threatId])
+  @@index([status])
+}
+
+model Incident {
+  id              String   @id @default(cuid())
+  incidentNumber  String   @unique
+  title           String
+  description     String
+  severity        Severity @default(MEDIUM)
+  status          String   @default("OPEN")
+  assignedTo      String?
+  reportedBy      String?
+  reportedAt      DateTime @default(now())
+  resolvedAt      DateTime?
+  resolution      String?
+  rootCause       String?
+  lessons         String?
+  relatedThreats  String?
+  confidence      Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model HuntingQuery {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  query       String
+  filters     String?
+  createdBy   String
+  isPublic    Boolean  @default(false)
+  executionCount Int    @default(0)
+  lastExecuted DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SecurityEvent {
+  id          String   @id @default(cuid())
+  eventType   String
+  severity    Severity @default(LOW)
+  timestamp   DateTime @default(now())
+  sourceIp    String?
+  destinationIp String?
+  sourceHost  String?
+  destinationHost String?
+  userName    String?
+  processName String?
+  fileName    String?
+  description String
+  rawEvent    String?
+  isCorrelated Boolean  @default(false)
+  threatId    String?
+  createdAt   DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([eventType])
+  @@index([sourceIp])
+  @@index([threatId])
+}
+
+model AnalyticsData {
+  id            String   @id @default(cuid())
+  date          DateTime
+  totalThreats  Int      @default(0)
+  criticalCount Int      @default(0)
+  highCount     Int      @default(0)
+  mediumCount   Int      @default(0)
+  lowCount      Int      @default(0)
+  resolvedCount Int      @default(0)
+  falsePositiveCount Int @default(0)
+  anomalyCount  Int      @default(0)
+  mttr          Float?  // Mean Time To Respond (hours)
+  mttd          Float?  // Mean Time To Detect (hours)
+  uniqueIocs    Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@unique([date])
+  @@index([date])
+}
+
+model User {
+  id            String   @id @default(cuid())
+  username      String   @unique
+  displayName   String
+  email         String   @unique
+  role          UserRole @default(ANALYST)
+  department    String?
+  level         Int      @default(1)
+  active        Boolean  @default(true)
+  skills        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  assignedThreats Threat[]
+}
+
+enum UserRole {
+  ANALYST
+  SENIOR_ANALYST
+  LEAD_ANALYST
+  SOC_MANAGER
+  INCIDENT_RESPONDER
+  THREAT_HUNTER
+  SECURITY_ENGINEER
+}
+
+model CorrelationChain {
+  id            String   @id @default(cuid())
+  chainName     String
+  description   String
+  chainType     ChainType
+  attackStage   String?
+  isApt         Boolean  @default(false)
+  aptGroup      String?
+  confidence    Float    @default(0)
+  isActive      Boolean  @default(true)
+  startTime     DateTime @default(now())
+  endTime       DateTime?
+  totalImpact   String?
+  affectedAssets String?
+  metadata      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  threats Threat[]
+
+  @@index([chainType])
+  @@index([isApt])
+  @@index([isActive])
+}
+
+enum ChainType {
+  SINGLE_STAGE
+  MULTI_STAGE
+  LATERAL_MOVEMENT
+  PERSISTENCE
+  EXFILTRATION
+  RECONNAISSANCE_EXPLOITATION
+  COMMAND_AND_CONTROL
+  SUPPLY_CHAIN
+  MULTI_VECTOR
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  reportNumber  String   @unique
+  title         String
+  type          ReportType
+  description   String
+  severity      Severity @default(MEDIUM)
+  status        String   @default("DRAFT")
+  createdBy     String
+  assignedTo    String?
+  startDate     DateTime
+  endDate       DateTime?
+  executiveSummary String?
+  keyFindings   String?
+  recommendations String?
+  threatIds     String?
+  iocIds        String?
+  attachments   String?
+  isPublished   Boolean  @default(false)
+  publishedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([createdBy])
+}
+
+enum ReportType {
+  DAILY_REPORT
+  WEEKLY_REPORT
+  MONTHLY_REPORT
+  INCIDENT_REPORT
+  THREAT_HUNTING_REPORT
+  COMPROMISE_ASSESSMENT
+  PHISHING_REPORT
+  APT_REPORT
+  IOC_REPORT
+}

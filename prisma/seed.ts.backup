@@ -1,0 +1,595 @@
+import { PrismaClient, ThreatType, Severity, ThreatStatus, IOCType } from '@prisma/client'
+
+const prisma = new PrismaClient()
+
+const ipGenerator = () => {
+  const generate = () => `${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`
+  return generate()
+}
+
+const internalIp = () => {
+  return `${192}.${Math.floor(Math.random() * 168 + 1)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`
+}
+
+const externalIp = () => {
+  return `${Math.floor(Math.random() * 224 + 1)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`
+}
+
+const hashGenerator = (type: 'MD5' | 'SHA1' | 'SHA256') => {
+  const length = type === 'MD5' ? 32 : type === 'SHA1' ? 40 : 64
+  const chars = '0123456789abcdef'
+  let hash = ''
+  for (let i = 0; i < length; i++) {
+    hash += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return hash
+}
+
+async function main() {
+  console.log('Starting realistic threat hunting data seeding...')
+
+  // Clear existing data
+  await prisma.iOC.deleteMany()
+  await prisma.timelineEvent.deleteMany()
+  await prisma.threat.deleteMany()
+  await prisma.securityEvent.deleteMany()
+  await prisma.investigation.deleteMany()
+  await prisma.incident.deleteMany()
+  await prisma.huntingQuery.deleteMany()
+  await prisma.analyticsData.deleteMany()
+
+  console.log('Cleared existing data')
+
+  // Create realistic threats
+  const threatScenarios = [
+    {
+      title: 'Suspicious PowerShell Execution on Domain Controller',
+      description: 'Detects suspicious PowerShell execution patterns on critical infrastructure, including encoded commands and unusual parameters that may indicate malicious activity such as credential harvesting or lateral movement.',
+      type: ThreatType.COMMAND_AND_CONTROL,
+      severity: Severity.CRITICAL,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: internalIp(),
+      destinationIp: internalIp(),
+      sourcePort: 50000 + Math.floor(Math.random() * 10000),
+      destinationPort: 5985,
+      protocol: 'HTTP',
+      detectionMethod: 'SIEM',
+      sourceSystem: 'Microsoft Defender ATP',
+      affectedHosts: 'DC-01.corp.local, DC-02.corp.local',
+      affectedUsers: 'administrator, svc_account',
+      mitreTactics: 'Execution, Lateral Movement',
+      mitreTechniques: 'T1059.001, T1021.002',
+      isAnomaly: true,
+      anomalyScore: 0.89,
+      confidence: 0.92,
+    },
+    {
+      title: 'Large Volume Data Exfiltration Detected',
+      description: 'Unusual outbound data transfer detected to external IP address. Multiple large files (over 100MB each) transferred during non-business hours from file server. Pattern consistent with data staging before exfiltration.',
+      type: ThreatType.DATA_EXFILTRATION,
+      severity: Severity.CRITICAL,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: internalIp(),
+      destinationIp: externalIp(),
+      sourcePort: 50000,
+      destinationPort: 443,
+      protocol: 'HTTPS',
+      detectionMethod: 'NETWORK_MONITORING',
+      sourceSystem: 'Darktrace',
+      affectedHosts: 'FS-01.corp.local',
+      mitreTactics: 'Exfiltration',
+      mitreTechniques: 'T1041, T1567.002',
+      isAnomaly: true,
+      anomalyScore: 0.94,
+      confidence: 0.88,
+    },
+    {
+      title: 'Brute Force Attack Against VPN Gateway',
+      description: 'Multiple failed authentication attempts from external IP addresses targeting VPN authentication services. Attack pattern shows credential stuffing behavior with multiple username attempts and timing consistent with automated tools.',
+      type: ThreatType.UNAUTHORIZED_ACCESS,
+      severity: Severity.HIGH,
+      status: ThreatStatus.CONTAINED,
+      sourceIp: externalIp(),
+      destinationIp: '10.0.0.10',
+      sourcePort: null,
+      destinationPort: 443,
+      protocol: 'HTTPS',
+      detectionMethod: 'IDS',
+      sourceSystem: 'Cisco ASA',
+      mitreTactics: 'Credential Access',
+      mitreTechniques: 'T1110.001, T1110.003',
+      isAnomaly: true,
+      anomalyScore: 0.82,
+      confidence: 0.95,
+      resolvedAt: new Date(Date.now() - 86400000),
+      resolvedBy: 'soc_team',
+    },
+    {
+      title: 'Malicious Process Injection Detected',
+      description: 'Antivirus detected process injection attempt by suspicious executable. Malware attempting to inject code into legitimate system processes (explorer.exe, svchost.exe) for persistence and defense evasion.',
+      type: ThreatType.MALWARE,
+      severity: Severity.CRITICAL,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: internalIp(),
+      destinationIp: internalIp(),
+      sourcePort: null,
+      destinationPort: null,
+      protocol: 'LOCAL',
+      detectionMethod: 'EDR',
+      sourceSystem: 'CrowdStrike Falcon',
+      affectedHosts: 'WS-1024.corp.local, WS-1567.corp.local',
+      mitreTactics: 'Defense Evasion, Persistence',
+      mitreTechniques: 'T1055, T1548.002',
+      isAnomaly: false,
+      anomalyScore: null,
+      confidence: 0.87,
+    },
+    {
+      title: 'Spear Phishing Campaign Targeting Executives',
+      description: 'Multiple users reported sophisticated phishing emails impersonating CEO and CFO. Emails contain malicious attachments (Excel documents with macros) and appear to be business-related. Attack shows advanced social engineering.',
+      type: ThreatType.PHISHING,
+      severity: Severity.HIGH,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: externalIp(),
+      destinationIp: '10.0.0.50',
+      sourcePort: null,
+      destinationPort: 25,
+      protocol: 'SMTP',
+      detectionMethod: 'EMAIL_SECURITY',
+      sourceSystem: 'Mimecast',
+      affectedUsers: 'john.smith@corp.local, jane.doe@corp.local, mike.wilson@corp.local',
+      mitreTactics: 'Initial Access',
+      mitreTechniques: 'T1566.001, T1566.002',
+      isAnomaly: false,
+      anomalyScore: null,
+      confidence: 0.78,
+    },
+    {
+      title: 'Lateral Movement via SMB',
+      description: 'Suspicious SMB connections detected between workstations and domain controller. Admin user account attempting SMB connections from non-admin workstation, consistent with credential theft and lateral movement.',
+      type: ThreatType.LATERAL_MOVEMENT,
+      severity: Severity.HIGH,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: internalIp(),
+      destinationIp: '10.0.0.5',
+      sourcePort: 50000 + Math.floor(Math.random() * 10000),
+      destinationPort: 445,
+      protocol: 'SMB',
+      detectionMethod: 'NETWORK_MONITORING',
+      sourceSystem: 'Zeek',
+      affectedHosts: 'DC-01.corp.local, WS-2048.corp.local',
+      affectedUsers: 'svc_backup, administrator',
+      mitreTactics: 'Lateral Movement',
+      mitreTechniques: 'T1021.002, T1077',
+      isAnomaly: true,
+      anomalyScore: 0.76,
+      confidence: 0.83,
+    },
+    {
+      title: 'Privilege Escalation via UAC Bypass',
+      description: 'UAC bypass technique detected. Malicious executable attempting to elevate privileges without user consent using COM object hijacking and registry manipulation. Allows attacker to run code with elevated permissions.',
+      type: ThreatType.PRIVILEGE_ESCALATION,
+      severity: Severity.HIGH,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: internalIp(),
+      destinationIp: internalIp(),
+      sourcePort: null,
+      destinationPort: null,
+      protocol: 'LOCAL',
+      detectionMethod: 'EDR',
+      sourceSystem: 'SentinelOne',
+      affectedHosts: 'WS-3096.corp.local',
+      mitreTactics: 'Privilege Escalation',
+      mitreTechniques: 'T1548.002, T1546.015',
+      isAnomaly: false,
+      anomalyScore: null,
+      confidence: 0.91,
+    },
+    {
+      title: 'DDoS Attack on Web Servers',
+      description: 'Volumetric DDoS attack detected targeting public-facing web servers. Attack pattern shows SYN flood with 500,000+ requests per minute from botnet. Load balancer mitigating but impacting availability.',
+      type: ThreatType.DDOS,
+      severity: Severity.HIGH,
+      status: ThreatStatus.CONTAINED,
+      sourceIp: externalIp(),
+      destinationIp: '203.0.113.50',
+      sourcePort: null,
+      destinationPort: 443,
+      protocol: 'TCP',
+      detectionMethod: 'NETWORK_MONITORING',
+      sourceSystem: 'Cloudflare',
+      mitreTactics: 'Impact',
+      mitreTechniques: 'T1498',
+      isAnomaly: false,
+      anomalyScore: null,
+      confidence: 0.99,
+    },
+    {
+      title: 'Suspicious Registry Modifications',
+      description: 'Multiple registry modifications detected in persistence mechanisms. Attackers adding entries to Run keys and Services for persistence. Modifications indicate malware attempting to establish persistent presence.',
+      type: ThreatType.PERSISTENCE,
+      severity: Severity.MEDIUM,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: internalIp(),
+      destinationIp: internalIp(),
+      sourcePort: null,
+      destinationPort: null,
+      protocol: 'LOCAL',
+      detectionMethod: 'EDR',
+      sourceSystem: 'Microsoft Defender ATP',
+      affectedHosts: 'WS-4096.corp.local',
+      mitreTactics: 'Persistence',
+      mitreTechniques: 'T1547.001, T1543.003',
+      isAnomaly: false,
+      anomalyScore: null,
+      confidence: 0.76,
+    },
+    {
+      title: 'Command and Control Beaconing',
+      description: 'Regular beaconing activity detected to known malicious domains. Pattern shows heartbeat connections every 60 seconds using HTTPS. Consistent with APT malware C2 communications.',
+      type: ThreatType.COMMAND_AND_CONTROL,
+      severity: Severity.CRITICAL,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: internalIp(),
+      destinationIp: externalIp(),
+      sourcePort: 50000,
+      destinationPort: 443,
+      protocol: 'HTTPS',
+      detectionMethod: 'NETWORK_MONITORING',
+      sourceSystem: 'FireEye',
+      affectedHosts: 'WS-5120.corp.local, WS-6144.corp.local',
+      mitreTactics: 'Command and Control',
+      mitreTechniques: 'T1071, T1102.002',
+      isAnomaly: true,
+      anomalyScore: 0.91,
+      confidence: 0.94,
+    },
+    {
+      title: 'SQL Injection Attempt on Web Application',
+      description: 'SQL injection attack patterns detected in web application logs. Attackers attempting to exploit input validation vulnerabilities in login and search forms. Multiple payload variations observed.',
+      type: ThreatType.INTRUSION,
+      severity: Severity.MEDIUM,
+      status: ThreatStatus.CONTAINED,
+      sourceIp: externalIp(),
+      destinationIp: '203.0.113.100',
+      sourcePort: null,
+      destinationPort: 443,
+      protocol: 'HTTPS',
+      detectionMethod: 'WAF',
+      sourceSystem: 'AWS WAF',
+      mitreTactics: 'Initial Access, Execution',
+      mitreTechniques: 'T1190, T1055',
+      isAnomaly: false,
+      anomalyScore: null,
+      confidence: 0.85,
+    },
+    {
+      title: 'Unusual Login from Foreign Country',
+      description: 'Administrator account login detected from geographic location outside expected region. Login at 3 AM local time from IP geolocated to country with no business operations. Possible credential compromise.',
+      type: ThreatType.UNAUTHORIZED_ACCESS,
+      severity: Severity.HIGH,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: externalIp(),
+      destinationIp: '10.0.0.15',
+      sourcePort: 50000,
+      destinationPort: 3389,
+      protocol: 'RDP',
+      detectionMethod: 'IAM',
+      sourceSystem: 'Azure AD',
+      affectedUsers: 'admin_user',
+      mitreTactics: 'Initial Access',
+      mitreTechniques: 'T1078',
+      isAnomaly: true,
+      anomalyScore: 0.87,
+      confidence: 0.93,
+    },
+    {
+      title: 'Fileless Malware Execution in Memory',
+      description: 'Fileless malware technique detected. Malicious PowerShell script loading directly into memory without touching disk. Uses obfuscation and AMSI bypass techniques to evade detection.',
+      type: ThreatType.MALWARE,
+      severity: Severity.CRITICAL,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: internalIp(),
+      destinationIp: internalIp(),
+      sourcePort: null,
+      destinationPort: null,
+      protocol: 'LOCAL',
+      detectionMethod: 'EDR',
+      sourceSystem: 'Carbon Black',
+      affectedHosts: 'WS-7168.corp.local',
+      mitreTactics: 'Execution, Defense Evasion',
+      mitreTechniques: 'T1059.001, T1564.001',
+      isAnomaly: true,
+      anomalyScore: 0.79,
+      confidence: 0.81,
+    },
+    {
+      title: 'Suspicious Scheduled Task Creation',
+      description: 'New scheduled task created with suspicious parameters. Task configured to run PowerShell with encoded command every 15 minutes. Indicators suggest malware establishing persistence via task scheduler.',
+      type: ThreatType.PERSISTENCE,
+      severity: Severity.MEDIUM,
+      status: ThreatStatus.INVESTIGATING,
+      sourceIp: internalIp(),
+      destinationIp: internalIp(),
+      sourcePort: null,
+      destinationPort: null,
+      protocol: 'LOCAL',
+      detectionMethod: 'EDR',
+      sourceSystem: 'Microsoft Defender ATP',
+      affectedHosts: 'WS-8192.corp.local',
+      mitreTactics: 'Persistence',
+      mitreTechniques: 'T1053.005',
+      isAnomaly: false,
+      anomalyScore: null,
+      confidence: 0.74,
+    },
+    {
+      title: 'Password Spraying Attack Detected',
+      description: 'Password spraying attack detected against Office 365. Attackers testing common passwords across multiple user accounts. Lockout policies preventing brute force but indicates credential stuffing attempt.',
+      type: ThreatType.UNAUTHORIZED_ACCESS,
+      severity: Severity.MEDIUM,
+      status: ThreatStatus.CONTAINED,
+      sourceIp: externalIp(),
+      destinationIp: 'office365.com',
+      sourcePort: null,
+      destinationPort: 443,
+      protocol: 'HTTPS',
+      detectionMethod: 'IAM',
+      sourceSystem: 'Microsoft Azure AD',
+      mitreTactics: 'Credential Access',
+      mitreTechniques: 'T1110.003',
+      isAnomaly: true,
+      anomalyScore: 0.71,
+      confidence: 0.88,
+    },
+  ]
+
+  const createdThreats = []
+  const now = new Date()
+
+  for (let i = 0; i < threatScenarios.length; i++) {
+    const scenario = threatScenarios[i]
+    const timestamp = new Date(now.getTime() - i * 3600000 * Math.random() * 8)
+
+    const threat = await prisma.threat.create({
+      data: {
+        ...scenario,
+        timestamp,
+        firstSeen: timestamp,
+        lastSeen: new Date(timestamp.getTime() + Math.random() * 3600000),
+        incidentId: `INC-${2024001 + i}`,
+        priority: scenario.severity === Severity.CRITICAL ? 1 : scenario.severity === Severity.HIGH ? 2 : 3,
+      },
+    })
+
+    createdThreats.push(threat)
+
+    // Create IOCs for each threat
+    const iocTypes = [
+      IOCType.IP_ADDRESS,
+      IOCType.DOMAIN,
+      IOCType.FILE_HASH_SHA256,
+      IOCType.URL,
+      IOCType.PROCESS_NAME,
+    ]
+
+    const iocCount = Math.floor(Math.random() * 3) + 2
+    for (let j = 0; j < iocCount; j++) {
+      const iocType = iocTypes[j % iocTypes.length]
+      let iocValue = ''
+
+      switch (iocType) {
+        case IOCType.IP_ADDRESS:
+          iocValue = scenario.sourceIp || scenario.destinationIp || externalIp()
+          break
+        case IOCType.DOMAIN:
+          iocValue = `malicious${Math.floor(Math.random() * 10000)}.com`
+          break
+        case IOCType.FILE_HASH_SHA256:
+          iocValue = hashGenerator('SHA256')
+          break
+        case IOCType.URL:
+          iocValue = `https://${Math.floor(Math.random() * 10000)}.com/payload.exe`
+          break
+        case IOCType.PROCESS_NAME:
+          iocValue = ['svchost.exe', 'powershell.exe', 'explorer.exe', 'cmd.exe', 'wscript.exe'][j % 5]
+          break
+      }
+
+      await prisma.iOC.create({
+        data: {
+          threatId: threat.id,
+          type: iocType,
+          value: iocValue,
+          description: `${iocType} associated with ${scenario.title}`,
+          confidence: 0.7 + Math.random() * 0.3,
+          source: scenario.sourceSystem,
+          firstSeen: timestamp,
+          lastSeen: new Date(),
+          isActive: true,
+        },
+      })
+    }
+
+    // Create timeline events for each threat
+    const eventTypes = ['Detection', 'Analysis Started', 'Enrichment', 'Correlation', 'Escalation', 'Containment']
+    const eventCount = Math.floor(Math.random() * 4) + 2
+
+    for (let j = 0; j < eventCount; j++) {
+      const eventTime = new Date(timestamp.getTime() + j * 1800000)
+      const eventType = eventTypes[Math.min(j, eventTypes.length - 1)]
+
+      await prisma.timelineEvent.create({
+        data: {
+          threatId: threat.id,
+          eventType,
+          eventTime,
+          description: `${eventType}: ${scenario.title}`,
+          metadata: JSON.stringify({
+            analyst: 'SOC Team',
+            notes: 'Automated event generated',
+          }),
+          userId: 'analyst@corp.local',
+          source: j === 0 ? 'AUTOMATED' : 'MANUAL',
+        },
+      })
+    }
+  }
+
+  console.log(`Created ${createdThreats.length} realistic threats with IOCs and timeline events`)
+
+  // Create investigations
+  for (let i = 0; i < 8; i++) {
+    const threat = createdThreats[i]
+    await prisma.investigation.create({
+      data: {
+        threatId: threat.id,
+        title: `Investigation: ${threat.title}`,
+        description: 'Comprehensive investigation of detected threat pattern. Analyzing root cause, scope, and impact.',
+        status: threat.status === ThreatStatus.CONTAINED ? 'CLOSED' : 'OPEN',
+        assignedTo: threat.assignedTo || 'SOC Analyst',
+        priority: threat.severity,
+        startTime: threat.timestamp,
+        endTime: threat.resolvedAt || null,
+        findings: 'Preliminary findings suggest APT-style attack pattern. Further analysis required.',
+        actions: 'Isolated affected systems, collected forensic evidence, initiated containment procedures.',
+      },
+    })
+  }
+
+  console.log('Created investigations')
+
+  // Create incidents
+  for (let i = 0; i < 5; i++) {
+    const threat = createdThreats[i]
+    await prisma.incident.create({
+      data: {
+        incidentNumber: `INC-${2024001 + i}`,
+        title: threat.title,
+        description: 'Major security incident requiring immediate attention and coordinated response.',
+        severity: threat.severity,
+        status: threat.status === ThreatStatus.CONTAINED || threat.status === ThreatStatus.RESOLVED ? 'CLOSED' : 'OPEN',
+        assignedTo: 'SOC Lead',
+        reportedBy: 'Automated Monitoring',
+        reportedAt: threat.timestamp,
+        resolvedAt: threat.resolvedAt,
+        resolution: threat.status === ThreatStatus.CONTAINED ? 'Threat contained and systems restored' : null,
+        rootCause: 'Analysis in progress',
+        lessons: 'Reviewing detection gaps and response procedures',
+        relatedThreats: threat.id,
+        confidence: threat.confidence,
+      },
+    })
+  }
+
+  console.log('Created incidents')
+
+  // Create saved hunting queries
+  const huntingQueries = [
+    {
+      name: 'Suspicious PowerShell Execution',
+      description: 'Find PowerShell commands with encoded arguments or suspicious parameters',
+      query: 'process_name:powershell AND (encoded:true OR encoded_command:true OR hidden:true OR bypass:true)',
+      filters: JSON.stringify({ timeRange: '24h', severity: ['HIGH', 'CRITICAL'] }),
+      createdBy: 'ThreatHunter@corp.local',
+      isPublic: true,
+    },
+    {
+      name: 'Lateral Movement Detection',
+      description: 'Detect lateral movement via SMB, WinRM, or RDP from unusual hosts',
+      query: 'protocol:(SMB OR winrm OR rdp) AND NOT source_ip:subnet_internal',
+      filters: JSON.stringify({ timeRange: '7d' }),
+      createdBy: 'ThreatHunter@corp.local',
+      isPublic: true,
+    },
+    {
+      name: 'Data Exfiltration Patterns',
+      description: 'Identify large outbound data transfers during non-business hours',
+      query: 'bytes_out:>100000000 AND hour:(22-5) AND destination_ip:!internal_subnet',
+      filters: JSON.stringify({ timeRange: '24h', threshold: 100000000 }),
+      createdBy: 'ThreatHunter@corp.local',
+      isPublic: true,
+    },
+    {
+      name: 'C2 Communication Beaconing',
+      description: 'Detect regular beaconing patterns to external IPs',
+      query: 'interval:regular AND connection_count:>10 AND destination_ip:!internal_subnet AND duration:<300',
+      filters: JSON.stringify({ timeRange: '7d' }),
+      createdBy: 'SOCAnalyst@corp.local',
+      isPublic: false,
+    },
+  ]
+
+  for (const query of huntingQueries) {
+    await prisma.huntingQuery.create({
+      data: {
+        ...query,
+        executionCount: Math.floor(Math.random() * 50) + 10,
+        lastExecuted: new Date(now.getTime() - Math.random() * 86400000 * 7),
+      },
+    })
+  }
+
+  console.log('Created hunting queries')
+
+  // Create security events for timeline analysis
+  const eventTypes = ['LOGIN', 'PROCESS_EXEC', 'NETWORK_CONNECTION', 'FILE_ACCESS', 'REGISTRY_CHANGE', 'PRIVILEGE_CHANGE']
+  for (let i = 0; i < 100; i++) {
+    const eventType = eventTypes[i % eventTypes.length]
+    const severity = Math.random() > 0.7 ? (Math.random() > 0.5 ? Severity.HIGH : Severity.CRITICAL) : (Math.random() > 0.5 ? Severity.MEDIUM : Severity.LOW)
+
+    await prisma.securityEvent.create({
+      data: {
+        eventType,
+        severity,
+        timestamp: new Date(now.getTime() - Math.random() * 86400000 * 7),
+        sourceIp: Math.random() > 0.3 ? internalIp() : null,
+        destinationIp: Math.random() > 0.3 ? externalIp() : null,
+        sourceHost: Math.random() > 0.2 ? `HOST-${Math.floor(Math.random() * 10000)}` : null,
+        userName: Math.random() > 0.3 ? `user${Math.floor(Math.random() * 1000)}@corp.local` : null,
+        description: `Security event detected: ${eventType} with severity ${severity}`,
+        isCorrelated: Math.random() > 0.6,
+        threatId: Math.random() > 0.8 ? createdThreats[Math.floor(Math.random() * createdThreats.length)].id : null,
+      },
+    })
+  }
+
+  console.log('Created security events')
+
+  // Create analytics data for the last 30 days
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(now)
+    date.setDate(date.getDate() - i)
+    date.setHours(0, 0, 0, 0)
+
+    await prisma.analyticsData.create({
+      data: {
+        date,
+        totalThreats: Math.floor(Math.random() * 25) + 5,
+        criticalCount: Math.floor(Math.random() * 4) + 0,
+        highCount: Math.floor(Math.random() * 8) + 2,
+        mediumCount: Math.floor(Math.random() * 12) + 4,
+        lowCount: Math.floor(Math.random() * 10) + 2,
+        resolvedCount: Math.floor(Math.random() * 15) + 5,
+        falsePositiveCount: Math.floor(Math.random() * 5) + 1,
+        anomalyCount: Math.floor(Math.random() * 6) + 1,
+        mttr: Math.random() * 48 + 2, // 2-50 hours
+        mttd: Math.random() * 24 + 1, // 1-25 hours
+        uniqueIocs: Math.floor(Math.random() * 20) + 10,
+      },
+    })
+  }
+
+  console.log('Created analytics data for 30 days')
+  console.log('✅ Realistic threat hunting data seeding completed!')
+}
+
+main()
+  .then(async () => {
+    await prisma.$disconnect()
+  })
+  .catch(async (e) => {
+    console.error('❌ Error seeding database:', e)
+    await prisma.$disconnect()
+    process.exit(1)
+  })
