@@ -1077,146 +1077,43 @@ export default function ThreatHuntingDashboard() {
                         <div className="space-y-2">
                           <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Quick Actions</h4>
                           <div className="flex flex-col gap-2">
-                            <Dialog open={actionDialog.open && actionDialog.action === 'assign'} onOpenChange={(open) => setActionDialog({ ...actionDialog, open })}>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full justify-start"
-                                  onClick={() => {
-                                    setActionDialog({ open: true, action: 'assign', threatId: selectedThreat.id })
-                                    setActionData({ ...actionData, assignedTo: selectedThreat.assignedTo || '' })
-                                  }}
-                                >
-                                  <User className="w-4 h-4 mr-2" />
-                                  Assign Analyst
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Assign Threat</DialogTitle>
-                                  <DialogDescription>Assign this threat to an analyst</DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4 mt-4">
-                                  <div>
-                                    <Label>Assigned To</Label>
-                                    <Select
-                                      value={actionData.assignedToId}
-                                      onValueChange={(value) => {
-                                        const user = users.find(u => u.id === value)
-                                        setActionData({
-                                          ...actionData,
-                                          assignedToId: value,
-                                          assignedTo: user?.displayName || ''
-                                        })
-                                      }}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select analyst" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {users.map((user) => (
-                                          <SelectItem key={user.id} value={user.id}>
-                                            {user.displayName} ({user.role.replace(/_/g, ' ')})
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <Button onClick={performThreatAction} disabled={!actionData.assignedToId}>
-                                    Assign
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => {
+                                setActionDialog({ open: true, action: 'assign', threatId: selectedThreat.id })
+                                setActionData({ ...actionData, assignedTo: selectedThreat.assignedTo || '' })
+                              }}
+                            >
+                              <User className="w-4 h-4 mr-2" />
+                              Assign Analyst
+                            </Button>
 
-                            <Dialog open={actionDialog.open && actionDialog.action === 'updateStatus'} onOpenChange={(open) => setActionDialog({ ...actionDialog, open })}>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full justify-start"
-                                  onClick={() => {
-                                    setActionDialog({ open: true, action: 'updateStatus', threatId: selectedThreat.id })
-                                    setActionData({ ...actionData, status: selectedThreat.status })
-                                  }}
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-2" />
-                                  Update Status
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Update Threat Status</DialogTitle>
-                                  <DialogDescription>Change the status of this threat</DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4 mt-4">
-                                  <div>
-                                    <Label>New Status</Label>
-                                    <Select value={actionData.status} onValueChange={(value) => setActionData({ ...actionData, status: value })}>
-                                      <SelectTrigger>
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="INVESTIGATING">Investigating</SelectItem>
-                                        <SelectItem value="CONTAINED">Contained</SelectItem>
-                                        <SelectItem value="RESOLVED">Resolved</SelectItem>
-                                        <SelectItem value="DETECTED">Detected</SelectItem>
-                                        <SelectItem value="INVESTIGATING">Investigating</SelectItem>
-                                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                                        <SelectItem value="CONTAINED">Contained</SelectItem>
-                                        <SelectItem value="RESOLVED">Resolved</SelectItem>
-                                        <SelectItem value="CLOSED">Closed</SelectItem>
-                                        <SelectItem value="FALSE_POSITIVE">False Positive</SelectItem>
-                                        <SelectItem value="ESCALATED">Escalated</SelectItem>
-                                        <SelectItem value="AWAITING_INFO">Awaiting Info</SelectItem>
-                                        <SelectItem value="MONITORING">Monitoring</SelectItem>
-                                        <SelectItem value="DEFERRED">Deferred</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <Button onClick={performThreatAction} disabled={!actionData.status}>
-                                    Update Status
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => {
+                                setActionDialog({ open: true, action: 'updateStatus', threatId: selectedThreat.id })
+                                setActionData({ ...actionData, status: selectedThreat.status })
+                              }}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Update Status
+                            </Button>
 
-                            <Dialog open={actionDialog.open && actionDialog.action === 'addNote'} onOpenChange={(open) => setActionDialog({ ...actionDialog, open })}>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full justify-start"
-                                  onClick={() => {
-                                    setActionDialog({ open: true, action: 'addNote', threatId: selectedThreat.id })
-                                  }}
-                                >
-                                  <FileText className="w-4 h-4 mr-2" />
-                                  Add Note
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Add Note</DialogTitle>
-                                  <DialogDescription>Add investigation notes to this threat</DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4 mt-4">
-                                  <div>
-                                    <Label>Note</Label>
-                                    <Textarea
-                                      value={actionData.notes}
-                                      onChange={(e) => setActionData({ ...actionData, notes: e.target.value })}
-                                      placeholder="Enter your notes..."
-                                      rows={4}
-                                    />
-                                  </div>
-                                  <Button onClick={performThreatAction} disabled={!actionData.notes}>
-                                    Add Note
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => {
+                                setActionDialog({ open: true, action: 'addNote', threatId: selectedThreat.id })
+                              }}
+                            >
+                              <FileText className="w-4 h-4 mr-2" />
+                              Add Note
+                            </Button>
                           </div>
                         </div>
 
@@ -1348,6 +1245,105 @@ export default function ThreatHuntingDashboard() {
           <p>Threat Hunting Dashboard • ML-Powered Anomaly Detection • MITRE ATT&CK Framework • Real-time Monitoring</p>
         </footer>
       </div>
+
+      {/* Dialogs rendered outside the main content flow to avoid nesting issues */}
+      <Dialog open={actionDialog.open && actionDialog.action === 'assign'} onOpenChange={(open) => setActionDialog({ ...actionDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Threat</DialogTitle>
+            <DialogDescription>Assign this threat to an analyst</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>Assigned To</Label>
+              <Select
+                value={actionData.assignedToId}
+                onValueChange={(value) => {
+                  const user = users.find(u => u.id === value)
+                  setActionData({
+                    ...actionData,
+                    assignedToId: value,
+                    assignedTo: user?.displayName || ''
+                  })
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select analyst" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.displayName} ({user.role.replace(/_/g, ' ')})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={performThreatAction} disabled={!actionData.assignedToId}>
+              Assign
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={actionDialog.open && actionDialog.action === 'updateStatus'} onOpenChange={(open) => setActionDialog({ ...actionDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Threat Status</DialogTitle>
+            <DialogDescription>Change the status of this threat</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>New Status</Label>
+              <Select value={actionData.status} onValueChange={(value) => setActionData({ ...actionData, status: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DETECTED">Detected</SelectItem>
+                  <SelectItem value="INVESTIGATING">Investigating</SelectItem>
+                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                  <SelectItem value="CONTAINED">Contained</SelectItem>
+                  <SelectItem value="RESOLVED">Resolved</SelectItem>
+                  <SelectItem value="CLOSED">Closed</SelectItem>
+                  <SelectItem value="FALSE_POSITIVE">False Positive</SelectItem>
+                  <SelectItem value="ESCALATED">Escalated</SelectItem>
+                  <SelectItem value="AWAITING_INFO">Awaiting Info</SelectItem>
+                  <SelectItem value="MONITORING">Monitoring</SelectItem>
+                  <SelectItem value="DEFERRED">Deferred</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={performThreatAction} disabled={!actionData.status}>
+              Update Status
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={actionDialog.open && actionDialog.action === 'addNote'} onOpenChange={(open) => setActionDialog({ ...actionDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Note</DialogTitle>
+            <DialogDescription>Add investigation notes to this threat</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>Note</Label>
+              <Textarea
+                value={actionData.notes}
+                onChange={(e) => setActionData({ ...actionData, notes: e.target.value })}
+                placeholder="Enter your notes..."
+                rows={4}
+              />
+            </div>
+            <Button onClick={performThreatAction} disabled={!actionData.notes}>
+              Add Note
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }

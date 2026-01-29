@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Threat Simulation",
   openGraph: {
-    description: "AI-powered development with modern React stack",
+    description: "Threat Simulation and Hunting Dashboard",
     type: "website",
   },
   twitter: {

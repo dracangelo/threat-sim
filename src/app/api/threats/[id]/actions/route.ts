@@ -9,162 +9,131 @@ export async function POST(
     const { id } = await params
     const body = await request.json()
 
-    const { action, ...data } = body
+    // Destructure known fields from body to avoid polluting updateData
+    const {
+      action,
+      assignedTo,
+      assignedToId,
+      assignedBy,
+      status,
+      resolvedBy,
+      updatedBy,
+      notes,
+      addedBy,
+      tags,
+      remediation,
+      remediatedBy,
+      containedBy,
+      escalatedBy,
+      markedBy,
+      closedBy
+    } = body
 
-    let updateData: any = { ...data }
+    // Initialize updateData only with fields we intend to update on the Threat model
+    let updateData: any = {}
+    let timelineDescription = ''
+    let timelineEventType = ''
+    let timelineUserId = ''
 
     switch (action) {
       case 'assign':
         // Support both old string assignment and new user ID assignment
-        if (data.assignedToId) {
-          updateData.assignedToId = data.assignedToId
+        if (assignedToId) {
+          updateData.assignedToId = assignedToId
           // Fetch user display name
           const user = await db.user.findUnique({
-            where: { id: data.assignedToId },
+            where: { id: assignedToId },
             select: { displayName: true },
           })
-          updateData.assignedTo = user?.displayName || data.assignedToId
+          updateData.assignedTo = user?.displayName || assignedToId
         } else {
-          updateData.assignedTo = data.assignedTo
+          updateData.assignedTo = assignedTo
         }
         updateData.status = 'INVESTIGATING'
-        // Create timeline event
-        await db.timelineEvent.create({
-          data: {
-            threatId: id,
-            eventType: 'ASSIGNMENT',
-            eventTime: new Date(),
-            description: `Threat assigned to ${updateData.assignedTo}`,
-            userId: data.assignedBy || data.assignedToId,
-            source: 'MANUAL',
-          },
-        })
+
+        timelineEventType = 'ASSIGNMENT'
+        timelineDescription = `Threat assigned to ${updateData.assignedTo}`
+        timelineUserId = assignedBy || assignedToId
         break
 
       case 'updateStatus':
-        updateData.status = data.status
-        if (data.status === 'RESOLVED' || data.status === 'CLOSED') {
+        updateData.status = status
+        if (status === 'RESOLVED' || status === 'CLOSED') {
           updateData.resolvedAt = new Date()
-          updateData.resolvedBy = data.resolvedBy
+          updateData.resolvedBy = resolvedBy
         }
-        // Create timeline event
-        await db.timelineEvent.create({
-          data: {
-            threatId: id,
-            eventType: 'STATUS_CHANGE',
-            eventTime: new Date(),
-            description: `Status changed to ${data.status}`,
-            userId: data.updatedBy,
-            source: 'MANUAL',
-          },
-        })
+
+        timelineEventType = 'STATUS_CHANGE'
+        timelineDescription = `Status changed to ${status}`
+        timelineUserId = updatedBy
         break
 
       case 'addNote':
-        updateData.notes = data.notes
-        await db.timelineEvent.create({
-          data: {
-            threatId: id,
-            eventType: 'NOTE_ADDED',
-            eventTime: new Date(),
-            description: data.notes,
-            userId: data.addedBy,
-            source: 'MANUAL',
-          },
-        })
+        // For notes, we might want to update a 'notes' field on Threat or just add to timeline
+        // If Threat model has 'notes', update it. But usually notes are just timeline events.
+        // The original code updated 'notes' field.
+        updateData.notes = notes
+
+        timelineEventType = 'NOTE_ADDED'
+        timelineDescription = notes
+        timelineUserId = addedBy
         break
 
       case 'updateTags':
-        updateData.tags = data.tags
+        updateData.tags = tags
         break
 
       case 'remediate':
         updateData.status = 'CONTAINED'
-        updateData.remediation = data.remediation
-        await db.timelineEvent.create({
-          data: {
-            threatId: id,
-            eventType: 'REMEDIATION',
-            eventTime: new Date(),
-            description: `Remediation actions: ${data.remediation}`,
-            userId: data.remediatedBy,
-            source: 'MANUAL',
-          },
-        })
+        updateData.remediation = remediation
+
+        timelineEventType = 'REMEDIATION'
+        timelineDescription = `Remediation actions: ${remediation}`
+        timelineUserId = remediatedBy
         break
 
       case 'contain':
         updateData.status = 'CONTAINED'
-        await db.timelineEvent.create({
-          data: {
-            threatId: id,
-            eventType: 'CONTAINMENT',
-            eventTime: new Date(),
-            description: 'Threat containment actions executed',
-            userId: data.containedBy,
-            source: 'MANUAL',
-          },
-        })
+
+        timelineEventType = 'CONTAINMENT'
+        timelineDescription = 'Threat containment actions executed'
+        timelineUserId = containedBy
         break
 
       case 'resolve':
         updateData.status = 'RESOLVED'
         updateData.resolvedAt = new Date()
-        updateData.resolvedBy = data.resolvedBy
-        await db.timelineEvent.create({
-          data: {
-            threatId: id,
-            eventType: 'RESOLUTION',
-            eventTime: new Date(),
-            description: 'Threat resolved',
-            userId: data.resolvedBy,
-            source: 'MANUAL',
-          },
-        })
+        updateData.resolvedBy = resolvedBy
+
+        timelineEventType = 'RESOLUTION'
+        timelineDescription = 'Threat resolved'
+        timelineUserId = resolvedBy
         break
 
       case 'escalate':
         updateData.status = 'ESCALATED'
-        await db.timelineEvent.create({
-          data: {
-            threatId: id,
-            eventType: 'ESCALATION',
-            eventTime: new Date(),
-            description: 'Threat escalated to higher level',
-            userId: data.escalatedBy,
-            source: 'MANUAL',
-          },
-        })
+
+        timelineEventType = 'ESCALATION'
+        timelineDescription = 'Threat escalated to higher level'
+        timelineUserId = escalatedBy
         break
 
       case 'falsePositive':
         updateData.status = 'FALSE_POSITIVE'
-        await db.timelineEvent.create({
-          data: {
-            threatId: id,
-            eventType: 'FALSE_POSITIVE',
-            eventTime: new Date(),
-            description: 'Marked as false positive',
-            userId: data.markedBy,
-            source: 'MANUAL',
-          },
-        })
+
+        timelineEventType = 'FALSE_POSITIVE'
+        timelineDescription = 'Marked as false positive'
+        timelineUserId = markedBy
         break
 
       case 'close':
         updateData.status = 'CLOSED'
         updateData.resolvedAt = new Date()
-        updateData.resolvedBy = data.closedBy
-        await db.timelineEvent.create({
-          data: {
-            threatId: id,
-            eventType: 'CLOSURE',
-            eventTime: new Date(),
-            description: 'Threat closed',
-            userId: data.closedBy,
-            source: 'MANUAL',
-          },
-        })
+        updateData.resolvedBy = closedBy
+
+        timelineEventType = 'CLOSURE'
+        timelineDescription = 'Threat closed'
+        timelineUserId = closedBy
         break
 
       default:
@@ -174,13 +143,41 @@ export async function POST(
         )
     }
 
-    const threat = await db.threat.update({
-      where: { id },
-      data: updateData,
+    // Perform database operations in transaction
+    const result = await db.$transaction(async (tx) => {
+      // 1. Update Threat
+      let threat
+      if (Object.keys(updateData).length > 0) {
+        threat = await tx.threat.update({
+          where: { id },
+          data: {
+            ...updateData,
+            updatedAt: new Date(),
+          },
+        })
+      } else {
+        threat = await tx.threat.findUnique({ where: { id } })
+      }
+
+      // 2. Create Timeline Event if applicable
+      if (timelineEventType) {
+        await tx.timelineEvent.create({
+          data: {
+            threatId: id,
+            eventType: timelineEventType,
+            eventTime: new Date(),
+            description: timelineDescription,
+            userId: timelineUserId || 'system',
+            source: 'MANUAL',
+          },
+        })
+      }
+
+      return threat
     })
 
-    return NextResponse.json(threat)
-  } catch (error) {
+    return NextResponse.json(result)
+  } catch (error: any) {
     console.error('Error performing threat action:', error)
     return NextResponse.json(
       { error: 'Failed to perform threat action', details: error.message },
